@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudentHub | Management Dashboard</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+    <a href="{{ url_for('index') }}" class="brand brand-link">
+        <div class="brand-icon">S</div>
+        <div>
+            <h1>StudentHub</h1>
+            <p>Smart Student Management</p>
+        </div>
+    </a>
+    <span class="status">● System Online</span>
+</header>
+
+<main class="container">
+    <section class="welcome">
+        <div>
+            <p class="eyebrow">ADMIN DASHBOARD</p>
+            <h2>Student Management</h2>
+            <p class="muted">Manage, analyze and organize student records.</p>
+        </div>
+        <a href="{{ url_for('export_students') }}"
+           class="btn primary">↓ Export CSV</a>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <section class="stats-grid">
+        <div class="stat-card">
+            <span>Total Students</span>
+            <strong>{{ total }}</strong>
+            <small>Registered records</small>
+        </div>
+        <div class="stat-card">
+            <span>Average Marks</span>
+            <strong>
+                {% if average_marks is not none %}
+                    {{ "%.2f"|format(average_marks) }}%
+                {% else %}
+                    —
+                {% endif %}
+            </strong>
+            <small>Across all students</small>
+        </div>
+        <div class="stat-card">
+            <span>Top Scorer</span>
+            <strong class="top-name">
+                {% if top_student %}{{ top_student.name }}{% else %}—{% endif %}
+            </strong>
+            <small>
+                {% if top_student %}
+                    {{ "%.2f"|format(top_student.marks) }}% ·
+                    {{ top_student.roll_number }}
+                {% else %}
+                    No records yet
+                {% endif %}
+            </small>
+        </div>
+        <div class="stat-card">
+            <span>Departments</span>
+            <strong>{{ departments|length }}</strong>
+            <small>Departments represented</small>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="section-heading">
+            <div>
+                <h3>Register a Student</h3>
+                <p class="muted">Add a new student to your database.</p>
+            </div>
+        </div>
+
+        <form action="{{ url_for('add_student') }}"
+              method="POST" class="student-form">
+            <div class="field">
+                <label for="roll_number">Roll Number</label>
+                <input id="roll_number" name="roll_number"
+                       placeholder="e.g. CST001" maxlength="30" required>
+            </div>
+            <div class="field">
+                <label for="name">Student Name</label>
+                <input id="name" name="name"
+                       placeholder="Full name" maxlength="100" required>
+            </div>
+            <div class="field">
+                <label for="department">Department</label>
+                <input id="department" name="department"
+                       placeholder="e.g. CST" maxlength="100" required>
+            </div>
+            <div class="field">
+                <label for="year">Academic Year</label>
+                <select id="year" name="year" required>
+                    <option value="">Select year</option>
+                    <option value="1">First Year</option>
+                    <option value="2">Second Year</option>
+                    <option value="3">Third Year</option>
+                    <option value="4">Fourth Year</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="marks">Marks (0–100)</label>
+                <input id="marks" name="marks" type="number"
+                       min="0" max="100" step="0.01"
+                       placeholder="e.g. 85" required>
+            </div>
+            <div class="field submit-field">
+                <button class="btn primary" type="submit">
+                    + Add Student
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <section class="panel">
+        <div class="section-heading">
+            <div>
+                <h3>Student Records</h3>
+                <p class="muted">Search, filter, sort, edit or delete records.</p>
+            </div>
+        </div>
+
+        <form action="{{ url_for('index') }}" method="GET"
+              class="filter-form">
+            <div class="field search-field">
+                <label for="search">Search</label>
+                <input id="search" type="search" name="search"
+                       value="{{ search }}"
+                       placeholder="Name or roll number">
+            </div>
+
+            <div class="field">
+                <label for="department-filter">Department</label>
+                <select id="department-filter" name="department">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.department }}"
+                            {% if selected_department == dept.department %}
+                                selected
+                            {% endif %}>
+                            {{ dept.department }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="sort">Sort By</label>
+                <select id="sort" name="sort">
+                    <option value="newest" {% if sort_by == "newest" %}selected{% endif %}>Newest First</option>
+                    <option value="name" {% if sort_by == "name" %}selected{% endif %}>Name A–Z</option>
+                    <option value="marks_high" {% if sort_by == "marks_high" %}selected{% endif %}>Highest Marks</option>
+                    <option value="marks_low" {% if sort_by == "marks_low" %}selected{% endif %}>Lowest Marks</option>
+                    <option value="roll" {% if sort_by == "roll" %}selected{% endif %}>Roll Number</option>
+                    <option value="year" {% if sort_by == "year" %}selected{% endif %}>Academic Year</option>
+                </select>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="btn primary">Apply</button>
+                <a href="{{ url_for('index') }}" class="btn secondary">Reset</a>
+            </div>
+        </form>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Roll Number</th>
+                        <th>Student Name</th>
+                        <th>Department</th>
+                        <th>Year</th>
+                        <th>Marks</th>
+                        <th>Performance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for student in students %}
+                    <tr>
+                        <td><span class="roll">{{ student.roll_number }}</span></td>
+                        <td>{{ student.name }}</td>
+                        <td>{{ student.department }}</td>
+                        <td>{{ student.year }}</td>
+                        <td>{{ "%.2f"|format(student.marks) }}%</td>
+                        <td>
+                            {% if student.marks >= 90 %}
+                                <span class="grade excellent">Excellent</span>
+                            {% elif student.marks >= 75 %}
+                                <span class="grade good">Good</span>
+                            {% elif student.marks >= 50 %}
+                                <span class="grade average">Average</span>
+                            {% else %}
+                                <span class="grade needs-improvement">Needs Improvement</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="actions">
+                                <a class="btn small secondary"
+                                   href="{{ url_for('edit_student', student_id=student.id) }}">Edit</a>
+                                <form action="{{ url_for('delete_student', student_id=student.id) }}"
+                                      method="POST"
+                                      onsubmit="return confirm('Delete this student record?');">
+                                    <button class="btn small danger"
+                                            type="submit">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="empty">
+                            No matching students found. Try another search or filter.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="table-footer">Showing {{ students|length }} record(s)</p>
+    </section>
+
+    <section class="panel">
+        <div class="section-heading">
+            <div>
+                <h3>Department Overview</h3>
+                <p class="muted">Student counts and average marks by department.</p>
+            </div>
+        </div>
+
+        {% if department_stats %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Department</th>
+                        <th>Students</th>
+                        <th>Average Marks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in department_stats %}
+                    <tr>
+                        <td>{{ item.department }}</td>
+                        <td>{{ item.count }}</td>
+                        <td>{{ "%.2f"|format(item.average_marks) }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <p class="empty">Add students to see department statistics.</p>
+        {% endif %}
+    </section>
+
+    <footer>StudentHub · Student Management System 2.0</footer>
+</main>
+</body>
+</html>
